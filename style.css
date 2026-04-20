@@ -13,9 +13,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-left: 8px;
-    /* Don't allow flex to shrink the label — forces the row to accommodate it */
-    flex-shrink: 0;
 
     cursor: pointer;
     line-height: 1;
@@ -27,11 +24,26 @@
     /* Default background for servers not in a colored folder */
     background-color: rgba(255, 255, 255, 0.1);
     transition: opacity 0.15s ease;
+
+    /*
+     * Absolutely positioned so the label never participates in flex layout
+     * and therefore never moves the icon. left: 100% = right edge of listItem
+     * (the icon row), which is as wide as the icon itself thanks to
+     * width: fit-content on the :has() rule below.
+     */
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 8px;
 }
 
-/* Allow the direct parent row to grow wide enough to fit the label */
+/*
+ * The icon span — label is appended inside it, so this is the positioning
+ * anchor. No width change needed; the span is already icon-sized.
+ */
 .vc-serverlabels-active :has(> .vc-serverlabels-name) {
-    width: auto;
+    position: relative;
     overflow: visible;
 }
 
@@ -49,25 +61,26 @@
 }
 
 /* ============================================================
-   Widen the guild sidebar and folder containers to make room
-   for labels. Uses a body class so we don't rely on Discord's
-   hashed class names.
+   Expand the guild sidebar so its internal scroll container
+   is wide enough to show the labels (which start ~72–80 px
+   from the left and extend up to 150 px further right).
+   Without this, the scroll container stays at 72 px and clips
+   everything to the right of the icon column.
    ============================================================ */
 
 /* Top-level guild sidebar */
 .vc-serverlabels-active nav:has(.vc-serverlabels-name) {
-    width: auto;
-    min-width: 72px;
-    max-width: 260px;
+    min-width: 260px;
+    max-width: 300px;
+    overflow: visible;
 }
 
-/* Folder group container */
+/* Folder group container — let labels overflow through it */
 .vc-serverlabels-active div:has(> ul[id^="folder-items-"]) {
-    width: auto;
-    min-width: 200px;
+    overflow: visible;
 }
 
 /* The folder guild list itself */
 .vc-serverlabels-active ul[id^="folder-items-"] {
-    width: auto;
+    overflow: visible;
 }

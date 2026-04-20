@@ -110,8 +110,9 @@ function injectLabel(treeitem: Element) {
         NavigationRouter.transitionToGuild(guildId);
     });
 
-    // Insert the label after the icon span, inside the existing listItem flex row.
-    iconSpan.after(label);
+    // Append the label inside the icon span so it becomes the absolute positioning
+    // anchor — avoids shrinking the listItem (which breaks Discord's icon centering).
+    iconSpan.appendChild(label);
 }
 
 function applyAllLabels() {

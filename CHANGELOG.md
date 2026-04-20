@@ -1,5 +1,15 @@
 # ServerLabels Changelog
 
+## [0.1.2] — 2026-04-20
+
+### Icon vertical alignment fix
+
+- Fixed server icons being pushed to the left of the sidebar instead of sitting at their natural centered position
+- Root cause: the label was appended after the icon `<span>` (as a sibling inside `listItem`), requiring `width: fit-content` on `listItem` to make `left: 100%` land after the icon — but shrinking `listItem` broke Discord's horizontal centering of the icon row
+- Fix: label is now appended **inside** the icon `<span>` via `iconSpan.appendChild(label)` instead of `iconSpan.after(label)`, making the iconSpan the absolute positioning anchor — it is already icon-sized so `left: 100%` works correctly with no width manipulation
+- Removed `width: fit-content !important` and `align-self: flex-start !important` from the `:has(> .vc-serverlabels-name)` CSS rule; Discord's default icon layout is now fully preserved
+- Fix applies to both standalone servers and servers inside open folders
+
 ## [0.1.1] — 2026-04-19
 
 ### Clickable labels with folder color matching
