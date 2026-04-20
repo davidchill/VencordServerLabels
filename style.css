@@ -1,0 +1,44 @@
+/* ============================================================
+   ServerLabels — label styles
+   Font size, weight, and max-width come from CSS variables
+   set by the plugin's start() method, so they update without
+   needing a rebuild when changed in settings.
+   ============================================================ */
+
+.vc-serverlabels-name {
+    font-size: var(--serverlabels-font-size, 14px);
+    font-weight: var(--serverlabels-font-weight, 400);
+    max-width: var(--serverlabels-max-width, 150px);
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 8px;
+    flex-shrink: 1;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* ============================================================
+   Widen the guild sidebar and folder containers to make room
+   for labels. Uses a body class so we don't rely on Discord's
+   hashed class names.
+   ============================================================ */
+
+/* Top-level guild sidebar */
+.vc-serverlabels-active nav:has(.vc-serverlabels-name) {
+    width: auto;
+    min-width: 72px;
+    max-width: 260px;
+}
+
+/* Folder group container */
+.vc-serverlabels-active div:has(> ul[id^="folder-items-"]) {
+    width: auto;
+    min-width: 200px;
+}
+
+/* The folder guild list itself */
+.vc-serverlabels-active ul[id^="folder-items-"] {
+    width: auto;
+}
