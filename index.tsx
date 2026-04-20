@@ -8,7 +8,10 @@ import "./style.css";
 
 import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
-import { GuildStore } from "@webpack/common";
+import { findStoreLazy } from "@webpack";
+import { GuildStore, NavigationRouter } from "@webpack/common";
+
+const SortedGuildStore = findStoreLazy("SortedGuildStore");
 
 const settings = definePluginSettings({
     fontSize: {
@@ -47,6 +50,18 @@ function updateCSSVars() {
     root.style.setProperty("--serverlabels-max-width", `${settings.store.maxWidth}px`);
 }
 
+function getFolderColor(guildId: string): string | null {
+    try {
+        const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
+        const folder = folders.find(f => f.guildIds?.includes(guildId));
+        const color: number | null | undefined = folder?.color;
+        if (!color) return null;
+        return `#${color.toString(16).padStart(6, "0")}`;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Injects a label into a single guild treeitem's listItem container.
  * Walks up from the treeitem to find the icon <span>, then appends
@@ -76,13 +91,26 @@ function injectLabel(treeitem: Element) {
     // Don't double-inject
     if (listItem.querySelector(`.${LABEL_CLASS}`)) return;
 
+    const folderColor = getFolderColor(guildId);
+
     const label = document.createElement("span");
     label.className = LABEL_CLASS;
     label.textContent = guild.name;
-    label.setAttribute("aria-hidden", "true");
+    label.setAttribute("role", "button");
+    label.setAttribute("tabindex", "0");
+    label.setAttribute("aria-label", guild.name);
+
+    if (folderColor) {
+        label.style.setProperty("--serverlabels-folder-color", folderColor);
+        label.dataset.hasColor = "true";
+    }
+
+    label.addEventListener("click", e => {
+        e.stopPropagation();
+        NavigationRouter.transitionToGuild(guildId);
+    });
 
     // Insert the label after the icon span, inside the existing listItem flex row.
-    // This means we never wrap or disturb Discord's original elements.
     iconSpan.after(label);
 }
 

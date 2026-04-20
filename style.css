@@ -14,9 +14,38 @@
     overflow: hidden;
     text-overflow: ellipsis;
     margin-left: 8px;
-    flex-shrink: 1;
-    pointer-events: none;
-    user-select: none;
+    /* Don't allow flex to shrink the label — forces the row to accommodate it */
+    flex-shrink: 0;
+
+    cursor: pointer;
+    line-height: 1;
+
+    /* Pill shape */
+    padding: 3px 10px;
+    border-radius: 100px;
+
+    /* Default background for servers not in a colored folder */
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: opacity 0.15s ease;
+}
+
+/* Allow the direct parent row to grow wide enough to fit the label */
+.vc-serverlabels-active :has(> .vc-serverlabels-name) {
+    width: auto;
+    overflow: visible;
+}
+
+/* Colored variant — uses the folder color set as an inline CSS variable */
+.vc-serverlabels-name[data-has-color="true"] {
+    background-color: var(--serverlabels-folder-color);
+}
+
+.vc-serverlabels-name:hover {
+    opacity: 0.85;
+}
+
+.vc-serverlabels-name:active {
+    opacity: 0.7;
 }
 
 /* ============================================================
