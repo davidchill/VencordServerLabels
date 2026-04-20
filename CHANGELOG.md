@@ -1,5 +1,23 @@
 # ServerLabels Changelog
 
+## [0.1.5] — 2026-04-20
+
+### Rectangular label style and tooltip suppression
+
+- Changed label shape from pill (`border-radius: 100px`) to rectangular button (`border-radius: 4px`); top/bottom padding bumped from `3px` to `4px` for better visual balance
+- Added CSS rule to suppress Discord's portal-rendered hover tooltips (`div[id^="uid_"]`, direct children of `<body>`) while the cursor is anywhere inside the guild nav sidebar, using a `:has(nav:hover)` body-level selector scoped to `vc-serverlabels-active`
+- Added `suppressNativeTooltip()` helper in `index.tsx` that strips `title` HTML attributes and SVG `<title>` child elements from each guild nav treeitem on label injection, eliminating native browser tooltips that appeared over small portions of server/folder icons
+
+## [0.1.4] — 2026-04-20
+
+### Settings persistence fix
+
+- Fixed settings (font size, font weight, max width) visually resetting to defaults shortly after being changed, even though the saved values were correct
+- Root cause: CSS variables were written to `document.documentElement` via inline `style.setProperty()` — Discord periodically rewrites the inline `style` attribute on the root element for its own theming, wiping out any custom properties we had set there
+- Fix: CSS variables are now written into an injected `<style>` element in `<head>` (id: `vc-serverlabels-vars`) rather than inline on `document.documentElement`; Discord has no reason to touch a `<style>` tag, so the variables persist reliably
+- The `<style>` element is created on plugin start and removed on plugin stop
+- Also added `onChange` callbacks to all three settings so the style tag updates immediately when a setting is changed, without needing to toggle the plugin
+
 ## [0.1.3] — 2026-04-20
 
 ### Folder name labels

@@ -19,6 +19,7 @@ const settings = definePluginSettings({
         description: "Font size of server name labels (px)",
         default: 14,
         markers: [10, 12, 14, 16, 18, 20],
+        onChange: () => updateCSSVars(),
     },
     fontWeight: {
         type: OptionType.SELECT,
@@ -28,12 +29,14 @@ const settings = definePluginSettings({
             { label: "Medium", value: "500" },
             { label: "Bold", value: "700" },
         ],
+        onChange: () => updateCSSVars(),
     },
     maxWidth: {
         type: OptionType.SLIDER,
         description: "Max width of server name labels (px)",
         default: 150,
         markers: [80, 100, 120, 150, 180, 200],
+        onChange: () => updateCSSVars(),
     },
 });
 
@@ -41,13 +44,16 @@ const LABEL_CLASS = "vc-serverlabels-name";
 const TREEITEM_SELECTOR = '[data-list-item-id^="guildsnav___"]';
 
 let observer: MutationObserver | null = null;
+let styleEl: HTMLStyleElement | null = null;
 
-/** Reads settings and writes them as CSS variables so styles update without a rebuild. */
+/** Reads settings and writes them into an injected <style> tag so Discord can't wipe them. */
 function updateCSSVars() {
-    const root = document.documentElement;
-    root.style.setProperty("--serverlabels-font-size", `${settings.store.fontSize}px`);
-    root.style.setProperty("--serverlabels-font-weight", settings.store.fontWeight);
-    root.style.setProperty("--serverlabels-max-width", `${settings.store.maxWidth}px`);
+    if (!styleEl) return;
+    styleEl.textContent = `:root {
+        --serverlabels-font-size: ${settings.store.fontSize}px;
+        --serverlabels-font-weight: ${settings.store.fontWeight};
+        --serverlabels-max-width: ${settings.store.maxWidth}px;
+    }`;
 }
 
 function getFolderColor(guildId: string): string | null {
@@ -87,6 +93,8 @@ function injectFolderLabel(treeitem: Element) {
         // which is the icon area — append label directly inside it.
         if (treeitem.querySelector(`.${LABEL_CLASS}`)) return;
 
+        suppressNativeTooltip(treeitem);
+
         const label = document.createElement("span");
         label.className = LABEL_CLASS;
         label.textContent = folder.folderName;
@@ -102,6 +110,12 @@ function injectFolderLabel(treeitem: Element) {
     }
 }
 
+/** Removes native browser tooltips (title attributes and SVG <title> elements) from a treeitem. */
+function suppressNativeTooltip(treeitem: Element) {
+    treeitem.querySelectorAll("[title]").forEach(el => el.removeAttribute("title"));
+    treeitem.querySelectorAll("svg title").forEach(el => el.remove());
+}
+
 function injectLabel(treeitem: Element) {
     const rawId = treeitem.getAttribute("data-list-item-id") ?? "";
     const guildId = rawId.startsWith("guildsnav___") ? rawId.slice("guildsnav___".length) : null;
@@ -109,6 +123,8 @@ function injectLabel(treeitem: Element) {
 
     const guild = GuildStore.getGuild(guildId);
     if (!guild) return;
+
+    suppressNativeTooltip(treeitem);
 
     // Walk up from the treeitem to find the <span> that wraps the icon blob.
     // DOM path: treeitem ← div[data-dnd-name] ← foreignObject ← svg ← div.wrapper ← div.blobContainer ← span ← listItem
@@ -167,6 +183,10 @@ export default definePlugin({
     patches: [],
 
     start() {
+        styleEl = document.createElement("style");
+        styleEl.id = "vc-serverlabels-vars";
+        document.head.appendChild(styleEl);
+
         document.body.classList.add("vc-serverlabels-active");
         updateCSSVars();
         applyAllLabels();
@@ -198,9 +218,7 @@ export default definePlugin({
         observer = null;
         removeAllLabels();
 
-        const root = document.documentElement;
-        root.style.removeProperty("--serverlabels-font-size");
-        root.style.removeProperty("--serverlabels-font-weight");
-        root.style.removeProperty("--serverlabels-max-width");
+        styleEl?.remove();
+        styleEl = null;
     },
 });

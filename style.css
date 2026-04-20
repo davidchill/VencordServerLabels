@@ -17,9 +17,9 @@
     cursor: pointer;
     line-height: 1;
 
-    /* Pill shape */
-    padding: 3px 10px;
-    border-radius: 100px;
+    /* Rectangular button shape */
+    padding: 4px 10px;
+    border-radius: 4px;
 
     /* Default background for servers not in a colored folder */
     background-color: rgba(255, 255, 255, 0.1);
@@ -68,6 +68,15 @@
 
 .vc-serverlabels-name:active {
     opacity: 0.7;
+}
+
+/*
+ * Hide Discord's native server-name tooltip while hovering over a guild nav item.
+ * The tooltip is rendered in a portal (outside the nav DOM), so we use :has() on
+ * body to detect the hover state and suppress any [role="tooltip"] descendant.
+ */
+body.vc-serverlabels-active:has(nav:has(.vc-serverlabels-name):hover) > div[id^="uid_"] {
+    display: none !important;
 }
 
 /* ============================================================
