@@ -14,7 +14,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
 
-    cursor: pointer;
     line-height: 1;
 
     /* Rectangular button shape */
@@ -37,6 +36,13 @@
     top: 50%;
     transform: translateY(-50%);
     margin-left: 8px;
+
+    /*
+     * pointer-events: none makes all labels invisible to Discord's event system
+     * so hovering them never triggers the tooltip. Clicks and hover effects are
+     * handled by document-level listeners in index.tsx instead.
+     */
+    pointer-events: none;
 }
 
 /*
@@ -87,21 +93,16 @@
     background-color: var(--serverlabels-folder-color);
 }
 
-.vc-serverlabels-name:hover {
+/*
+ * Hover and active states are driven by JS (document mousemove in index.tsx)
+ * since pointer-events: none prevents CSS :hover from firing.
+ */
+.vc-serverlabels-name--hover {
     opacity: 0.85;
 }
 
-.vc-serverlabels-name:active {
+.vc-serverlabels-name--hover:active {
     opacity: 0.7;
-}
-
-/*
- * Hide Discord's native server-name tooltip while hovering over a guild nav item.
- * The tooltip is rendered in a portal (outside the nav DOM), so we use :has() on
- * body to detect the hover state and suppress any [role="tooltip"] descendant.
- */
-body.vc-serverlabels-active:has(nav:has(.vc-serverlabels-name):hover) > div[id^="uid_"] {
-    display: none !important;
 }
 
 /* ============================================================

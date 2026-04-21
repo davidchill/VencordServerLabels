@@ -1,5 +1,19 @@
 # ServerLabels Changelog
 
+## [0.1.6] — 2026-04-20
+
+### Tooltip suppression via pointer-events
+
+- Eliminated Discord's server-name tooltip appearing when hovering over labels
+- Root cause: Discord's tooltip system uses React event delegation at the root container level, which fires before any native event listener — making `stopPropagation()` and CSS `:has()` suppression both ineffective against it
+- Fix: all labels (guild and folder) now carry `pointer-events: none`, making them invisible to Discord's event system; when the cursor is over a label it is treated as hovering the sidebar background (outside the treeitem), so Discord never fires the tooltip
+- Guild label clicks replaced with a document-level capture-phase click listener that checks bounding rects via `labelAtPoint()` and calls `NavigationRouter.transitionToGuild()` for whichever label contains the click coordinates
+- Folder label clicks replaced with a document-level handler that reads `data-folder-id` from the label, locates the folder's treeitem via `querySelector`, and programmatically calls `.click()` on it to preserve Discord's native expand/collapse behavior
+- Hover opacity effect and `cursor: pointer` replaced with a document-level `mousemove` listener (RAF-throttled) that manually toggles a `vc-serverlabels-name--hover` CSS class and sets `document.body.style.cursor`
+- Removed all previous CSS-based tooltip suppression rules (`[role="tooltip"]`, `[style*="--reference-position-layer-max-height"]`, `div[id^="uid_"]`, body class toggling) — no longer needed
+- Added `data-folder-id` attribute to folder labels in `injectFolderLabel()` to support the document-level click handler
+- Added `rafId` module variable for cancelling the pending animation frame on plugin stop
+
 ## [0.1.5] — 2026-04-20
 
 ### Label polish and folder tree lines

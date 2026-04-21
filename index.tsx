@@ -41,10 +41,12 @@ const settings = definePluginSettings({
 });
 
 const LABEL_CLASS = "vc-serverlabels-name";
+const LABEL_HOVER_CLASS = "vc-serverlabels-name--hover";
 const TREEITEM_SELECTOR = '[data-list-item-id^="guildsnav___"]';
 
 let observer: MutationObserver | null = null;
 let styleEl: HTMLStyleElement | null = null;
+let rafId: number | null = null;
 
 /** Reads settings and writes them into an injected <style> tag so Discord can't wipe them. */
 function updateCSSVars() {
@@ -78,6 +80,58 @@ function isInFolder(guildId: string): boolean {
 }
 
 /**
+ * Returns the label element (if any) whose bounding rect contains the given point.
+ * Used by the document-level click and mousemove handlers, since the labels have
+ * pointer-events: none and cannot receive events directly.
+ */
+function labelAtPoint(x: number, y: number): HTMLElement | null {
+    for (const el of document.querySelectorAll(`.${LABEL_CLASS}`)) {
+        const r = el.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+            return el as HTMLElement;
+        }
+    }
+    return null;
+}
+
+/**
+ * Document-level click handler (capture phase).
+ * Labels have pointer-events: none, so we check coordinates manually and navigate
+ * to whichever guild label was clicked.
+ */
+function onDocumentClick(e: MouseEvent) {
+    const label = labelAtPoint(e.clientX, e.clientY);
+    if (!label) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (label.dataset.guildId) {
+        NavigationRouter.transitionToGuild(label.dataset.guildId);
+    } else if (label.dataset.folderId) {
+        // Simulate a click on the folder treeitem to expand/collapse it.
+        const treeitem = document.querySelector(`[data-list-item-id="guildsnav___${label.dataset.folderId}"]`);
+        (treeitem as HTMLElement)?.click();
+    }
+}
+
+/**
+ * Document-level mousemove handler.
+ * Since labels have pointer-events: none, we manually apply the hover class and
+ * set the cursor so the user can see the labels are interactive.
+ * Throttled to one update per animation frame.
+ */
+function onDocumentMouseMove(e: MouseEvent) {
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const hovered = labelAtPoint(e.clientX, e.clientY);
+        document.querySelectorAll(`.${LABEL_CLASS}[data-guild-id]`).forEach(el => {
+            el.classList.toggle(LABEL_HOVER_CLASS, el === hovered);
+        });
+        document.body.style.cursor = hovered ? "pointer" : "";
+    });
+}
+
+/**
  * Injects a label into a single guild treeitem's listItem container.
  * Walks up from the treeitem to find the icon <span>, then appends
  * the label as a sibling inside the existing listItem flex row —
@@ -107,6 +161,7 @@ function injectFolderLabel(treeitem: Element) {
         const label = document.createElement("span");
         label.className = LABEL_CLASS;
         label.textContent = folder.folderName;
+        label.dataset.folderId = idStr;
 
         if (folder.folderColor) {
             label.style.setProperty("--serverlabels-folder-color", `#${folder.folderColor.toString(16).padStart(6, "0")}`);
@@ -155,9 +210,9 @@ function injectLabel(treeitem: Element) {
     const label = document.createElement("span");
     label.className = LABEL_CLASS;
     label.textContent = guild.name;
-    label.setAttribute("role", "button");
-    label.setAttribute("tabindex", "0");
     label.setAttribute("aria-label", guild.name);
+    // Store the guild ID so the document-level click handler can navigate.
+    label.dataset.guildId = guildId;
 
     if (folderColor) {
         label.style.setProperty("--serverlabels-folder-color", folderColor);
@@ -168,13 +223,11 @@ function injectLabel(treeitem: Element) {
         label.dataset.inFolder = "true";
     }
 
-    label.addEventListener("click", e => {
-        e.stopPropagation();
-        NavigationRouter.transitionToGuild(guildId);
-    });
-
     // Append the label inside the icon span so it becomes the absolute positioning
     // anchor — avoids shrinking the listItem (which breaks Discord's icon centering).
+    // The label has pointer-events: none (see style.css), so it is invisible to
+    // Discord's event system. Clicks and hover effects are handled by document-level
+    // listeners registered in start() to avoid triggering Discord's tooltip.
     iconSpan.appendChild(label);
 }
 
@@ -182,7 +235,6 @@ function applyAllLabels() {
     document.querySelectorAll(TREEITEM_SELECTOR).forEach(injectLabel);
     document.querySelectorAll(TREEITEM_SELECTOR).forEach(injectFolderLabel);
 }
-
 
 function removeAllLabels() {
     document.querySelectorAll(`.${LABEL_CLASS}`).forEach(el => el.remove());
@@ -203,6 +255,10 @@ export default definePlugin({
         document.body.classList.add("vc-serverlabels-active");
         updateCSSVars();
         applyAllLabels();
+
+        // Labels have pointer-events: none, so all interaction is handled here.
+        document.addEventListener("click", onDocumentClick, true);
+        document.addEventListener("mousemove", onDocumentMouseMove);
 
         // Watch for Discord re-rendering the guild list (e.g. new notifications,
         // server reorder, folder expand/collapse) and re-inject labels as needed.
@@ -227,10 +283,13 @@ export default definePlugin({
 
     stop() {
         document.body.classList.remove("vc-serverlabels-active");
+        document.body.style.cursor = "";
+        document.removeEventListener("click", onDocumentClick, true);
+        document.removeEventListener("mousemove", onDocumentMouseMove);
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
         observer?.disconnect();
         observer = null;
         removeAllLabels();
-
         styleEl?.remove();
         styleEl = null;
     },
