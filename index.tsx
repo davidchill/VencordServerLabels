@@ -45,8 +45,12 @@ const LABEL_HOVER_CLASS = "vc-serverlabels-name--hover";
 const TREEITEM_SELECTOR = '[data-list-item-id^="guildsnav___"]';
 
 let observer: MutationObserver | null = null;
+let navBootstrapObserver: MutationObserver | null = null;
 let styleEl: HTMLStyleElement | null = null;
 let rafId: number | null = null;
+let applyRafId: number | null = null;
+
+const activeLabels = new Set<HTMLElement>();
 
 /** Reads settings and writes them into an injected <style> tag so Discord can't wipe them. */
 function updateCSSVars() {
@@ -85,10 +89,11 @@ function isInFolder(guildId: string): boolean {
  * pointer-events: none and cannot receive events directly.
  */
 function labelAtPoint(x: number, y: number): HTMLElement | null {
-    for (const el of document.querySelectorAll(`.${LABEL_CLASS}`)) {
+    for (const el of activeLabels) {
+        if (!el.isConnected) { activeLabels.delete(el); continue; }
         const r = el.getBoundingClientRect();
         if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-            return el as HTMLElement;
+            return el;
         }
     }
     return null;
@@ -124,9 +129,9 @@ function onDocumentMouseMove(e: MouseEvent) {
     rafId = requestAnimationFrame(() => {
         rafId = null;
         const hovered = labelAtPoint(e.clientX, e.clientY);
-        document.querySelectorAll(`.${LABEL_CLASS}[data-guild-id]`).forEach(el => {
-            el.classList.toggle(LABEL_HOVER_CLASS, el === hovered);
-        });
+        for (const el of activeLabels) {
+            if (el.dataset.guildId) el.classList.toggle(LABEL_HOVER_CLASS, el === hovered);
+        }
         document.body.style.cursor = hovered ? "pointer" : "";
     });
 }
@@ -169,6 +174,7 @@ function injectFolderLabel(treeitem: Element) {
         }
 
         treeitem.appendChild(label);
+        activeLabels.add(label);
     } catch {
         return;
     }
@@ -229,6 +235,7 @@ function injectLabel(treeitem: Element) {
     // Discord's event system. Clicks and hover effects are handled by document-level
     // listeners registered in start() to avoid triggering Discord's tooltip.
     iconSpan.appendChild(label);
+    activeLabels.add(label);
 }
 
 function applyAllLabels() {
@@ -237,7 +244,8 @@ function applyAllLabels() {
 }
 
 function removeAllLabels() {
-    document.querySelectorAll(`.${LABEL_CLASS}`).forEach(el => el.remove());
+    activeLabels.forEach(el => el.remove());
+    activeLabels.clear();
 }
 
 export default definePlugin({
@@ -272,13 +280,33 @@ export default definePlugin({
                     )
                 );
                 if (hasNewGuildNodes) {
-                    applyAllLabels();
+                    if (applyRafId === null) {
+                        applyRafId = requestAnimationFrame(() => {
+                            applyRafId = null;
+                            applyAllLabels();
+                        });
+                    }
                     break;
                 }
             }
         });
 
-        observer.observe(document.body, { childList: true, subtree: true });
+        const nav = document.querySelector('nav[class*="guilds"]');
+        if (nav) {
+            observer.observe(nav, { childList: true, subtree: true });
+        } else {
+            // Guild sidebar not ready yet — watch body briefly, then switch to nav.
+            observer.observe(document.body, { childList: true, subtree: true });
+            navBootstrapObserver = new MutationObserver(() => {
+                const n = document.querySelector('nav[class*="guilds"]');
+                if (!n) return;
+                navBootstrapObserver!.disconnect();
+                navBootstrapObserver = null;
+                observer?.disconnect();
+                observer?.observe(n, { childList: true, subtree: true });
+            });
+            navBootstrapObserver.observe(document.body, { childList: true });
+        }
     },
 
     stop() {
@@ -287,6 +315,9 @@ export default definePlugin({
         document.removeEventListener("click", onDocumentClick, true);
         document.removeEventListener("mousemove", onDocumentMouseMove);
         if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+        if (applyRafId !== null) { cancelAnimationFrame(applyRafId); applyRafId = null; }
+        navBootstrapObserver?.disconnect();
+        navBootstrapObserver = null;
         observer?.disconnect();
         observer = null;
         removeAllLabels();

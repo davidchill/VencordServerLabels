@@ -1,5 +1,15 @@
 # ServerLabels Changelog
 
+## [0.1.7] — 2026-04-21
+
+### Performance fixes (MutationObserver, label cache, RAF debounce)
+
+- **Scoped MutationObserver to guild sidebar nav** — previously observed `document.body` with `{ childList: true, subtree: true }`, which fired on every DOM change in the entire Discord app (chat messages, modals, animations, etc.); now observes only `nav[class*="guilds"]`, limiting callbacks to the guild sidebar subtree; a short-lived bootstrap observer on `document.body` handles the rare case where the nav isn't in the DOM yet when the plugin starts
+- **Cached active labels in a `Set<HTMLElement>`** — `labelAtPoint()` and the `mousemove` handler previously called `document.querySelectorAll` on every RAF frame; replaced with a module-level `activeLabels` Set that is updated by `injectLabel()` / `injectFolderLabel()` on injection and cleared by `removeAllLabels()` on stop, turning O(n) DOM queries into O(1) Set iterations per frame
+- **Added `isConnected` pruning in `labelAtPoint()`** — when Discord removes guild treeitems from the DOM (e.g. folder collapse), their labels become detached but remained in `activeLabels`; detached elements return `{top:0,left:0,right:0,bottom:0}` from `getBoundingClientRect()`, which matched the `clientX:0,clientY:0` coordinates of any programmatic `.click()` call, causing the folder expand/collapse handler to be intercepted and swallowed; stale entries are now pruned from the Set on first encounter in `labelAtPoint()`
+- **RAF debounce on `applyAllLabels()` in the MutationObserver** — rapid DOM mutations (e.g. opening a folder with many servers) previously triggered `applyAllLabels()` — which queries the full guild list — on every individual mutation; added an `applyRafId` guard so at most one `applyAllLabels()` runs per animation frame regardless of burst size
+- Added `applyRafId` and `navBootstrapObserver` module variables; both are cancelled/disconnected in `stop()` to prevent leaks across plugin stop/start cycles
+
 ## [0.1.6] — 2026-04-20
 
 ### Tooltip suppression via pointer-events
