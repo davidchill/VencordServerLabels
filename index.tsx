@@ -48,6 +48,7 @@ let observer: MutationObserver | null = null;
 let navBootstrapObserver: MutationObserver | null = null;
 let styleEl: HTMLStyleElement | null = null;
 let rafId: number | null = null;
+let guildsNav: HTMLElement | null = null;
 
 const activeLabels = new Set<HTMLElement>();
 
@@ -131,7 +132,7 @@ function onDocumentMouseMove(e: MouseEvent) {
         for (const el of activeLabels) {
             if (el.dataset.guildId) el.classList.toggle(LABEL_HOVER_CLASS, el === hovered);
         }
-        document.body.style.cursor = hovered ? "pointer" : "";
+        if (guildsNav) guildsNav.style.cursor = hovered ? "pointer" : "";
     });
 }
 
@@ -147,9 +148,7 @@ function injectFolderLabel(treeitem: Element) {
 
     const idStr = rawId.slice("guildsnav___".length);
     const idNum = Number(idStr);
-    // Folder IDs are plain integers (~10 digits); guild snowflakes are 18-19 digits.
-    // Reject anything that's not a finite positive integer, or looks like a guild snowflake.
-    if (!Number.isFinite(idNum) || idNum <= 0 || idStr.length > 15) return;
+    if (!Number.isFinite(idNum) || idNum <= 0) return;
 
     try {
         const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
@@ -249,6 +248,34 @@ function removeAllLabels() {
     activeLabels.clear();
 }
 
+function refreshLabelColors() {
+    // Discord may re-render the nav element when folder settings change; re-query to avoid a stale reference.
+    const nav = document.querySelector('nav[class*="guilds"]');
+    if (nav) guildsNav = nav as HTMLElement;
+    try {
+        const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
+        for (const el of activeLabels) {
+            if (!el.isConnected) continue;
+            let colorHex: string | null = null;
+            if (el.dataset.folderId) {
+                const idNum = Number(el.dataset.folderId);
+                const folder = folders.find(f => f.folderId === idNum);
+                const c = folder?.folderColor;
+                if (c) colorHex = `#${c.toString(16).padStart(6, "0")}`;
+            } else if (el.dataset.guildId) {
+                colorHex = getFolderColor(el.dataset.guildId);
+            }
+            if (colorHex) {
+                el.style.setProperty("--serverlabels-folder-color", colorHex);
+                el.dataset.hasColor = "true";
+            } else {
+                el.style.removeProperty("--serverlabels-folder-color");
+                delete el.dataset.hasColor;
+            }
+        }
+    } catch {}
+}
+
 export default definePlugin({
     name: "ServerLabels",
     description: "Displays server names next to their icons in the server list.",
@@ -268,12 +295,16 @@ export default definePlugin({
         // Labels have pointer-events: none, so all interaction is handled here.
         document.addEventListener("click", onDocumentClick, true);
         document.addEventListener("mousemove", onDocumentMouseMove);
+        SortedGuildStore.addChangeListener(refreshLabelColors);
 
         // Watch for Discord re-rendering the guild list (e.g. new notifications,
         // server reorder, folder expand/collapse) and re-inject labels as needed.
         observer = new MutationObserver(mutations => {
             for (const mutation of mutations) {
                 if (mutation.type !== "childList") continue;
+                for (const el of activeLabels) {
+                    if (!el.isConnected) activeLabels.delete(el);
+                }
                 for (const node of mutation.addedNodes) {
                     if (!(node instanceof Element)) continue;
                     if (node.matches(TREEITEM_SELECTOR)) {
@@ -290,6 +321,7 @@ export default definePlugin({
 
         const nav = document.querySelector('nav[class*="guilds"]');
         if (nav) {
+            guildsNav = nav as HTMLElement;
             observer.observe(nav, { childList: true, subtree: true });
         } else {
             // Guild sidebar not ready yet — watch body briefly, then switch to nav.
@@ -297,6 +329,7 @@ export default definePlugin({
             navBootstrapObserver = new MutationObserver(() => {
                 const n = document.querySelector('nav[class*="guilds"]');
                 if (!n) return;
+                guildsNav = n as HTMLElement;
                 navBootstrapObserver!.disconnect();
                 navBootstrapObserver = null;
                 observer?.disconnect();
@@ -308,9 +341,10 @@ export default definePlugin({
 
     stop() {
         document.body.classList.remove("vc-serverlabels-active");
-        document.body.style.cursor = "";
+        if (guildsNav) { guildsNav.style.cursor = ""; guildsNav = null; }
         document.removeEventListener("click", onDocumentClick, true);
         document.removeEventListener("mousemove", onDocumentMouseMove);
+        SortedGuildStore.removeChangeListener(refreshLabelColors);
         if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
         navBootstrapObserver?.disconnect();
         navBootstrapObserver = null;

@@ -82,8 +82,8 @@
     top: -50%;          /* vertical line reaches upward toward the item above */
     bottom: 50%;        /* stops at vertical center — the elbow of the L */
     width: 8px;
-    border-left: 1.5px solid rgba(255, 255, 255, 0.35);
-    border-bottom: 1.5px solid rgba(255, 255, 255, 0.35);
+    border-left: 1.5px solid var(--text-muted);
+    border-bottom: 1.5px solid var(--text-muted);
     border-bottom-left-radius: 2px;
     pointer-events: none;
 }

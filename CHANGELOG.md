@@ -1,5 +1,15 @@
 # ServerLabels Changelog
 
+## [0.1.9] — 2026-04-22
+
+### Medium-priority review fixes + live folder color refresh
+
+- **Live folder color updates** — added `refreshLabelColors()` which subscribes to `SortedGuildStore` via `addChangeListener`; folder and server label colors now update immediately when a folder color is changed in Discord settings, without requiring a restart; also re-queries `guildsNav` on each fire to handle Discord replacing the nav element after a settings change (which was causing a stale reference and breaking cursor updates)
+- **Cursor scoped to guild nav** — `document.body.style.cursor` replaced with `guildsNav.style.cursor`; cursor change is now limited to the guild nav element rather than the entire document body, preventing potential conflicts with other plugins or Discord features; `guildsNav` is set when the nav is first found (or bootstrapped) and cleared to `""` in `stop()`
+- **Stale `activeLabels` pruning in observer** — `MutationObserver` callback now iterates `activeLabels` and removes any disconnected entries at the start of each mutation batch; previously, detached labels (e.g. from folder collapse) were only pruned lazily inside `labelAtPoint()` on the next mousemove or click
+- **Dropped folder ID length heuristic** — removed `|| idStr.length > 15` guard from `injectFolderLabel()`; the `SortedGuildStore` lookup (`folderId === idNum`) is the authoritative discriminator between folder and guild IDs; guild snowflake IDs (~18 digits) exceed JS's safe integer range and cannot match any ~10-digit folder ID even after numeric conversion
+- **Connector border colors use Discord CSS variable** — `rgba(255, 255, 255, 0.35)` on the L-shaped tree branch connector (`border-left`, `border-bottom`) replaced with `var(--text-muted)` for better theme compatibility
+
 ## [0.1.8] — 2026-04-21
 
 ### Observer and label injection optimizations
