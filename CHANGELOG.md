@@ -1,5 +1,19 @@
 # ServerLabels Changelog
 
+## [0.1.11] — 2026-04-22
+
+### Visual overhaul — label backgrounds, folder transparency, and gap equalization
+
+- **Label backgrounds match icon height** — changed from `padding: 5px 12px` with `top: 50%; transform: translateY(-50%)` to `display: inline-flex; align-items: center; height: 42px; top: 50%; transform: translateY(-50%)` so label backgrounds span the full 42px server icon height with text vertically centered
+- **Labels flush against icons** — removed `margin-left: 8px` gap; set `border-radius: 0 4px 4px 0` (flat left edge, rounded right) so labels appear attached to their icon
+- **Folder color transparency** — replaced solid `background-color: var(--serverlabels-folder-color)` with `color-mix(in srgb, var(--serverlabels-folder-color) 40%, transparent)` on colored labels to match Discord's semi-transparent folder icon appearance
+- **Open-folder transparency shift** — folder labels dim further to 20% opacity when expanded via `[aria-expanded="true"] > .vc-serverlabels-name[data-has-color="true"]`, matching Discord's folder icon open-state appearance
+- **In-folder server label transparency sync** — JS-driven: `MutationObserver` now also watches `aria-expanded` attribute changes (`attributeFilter: ["aria-expanded"]`); `syncFolderOpenState()` toggles `vc-serverlabels-folder-open` class on all server labels whose `data-parent-folder-id` matches the toggled folder; CSS targets that class for the 20% opacity shift; each server label stores its parent folder ID at injection time and initializes its open/closed state immediately from the current DOM
+- **In-folder server labels get full border-radius** — added `border-radius: 4px` to `.vc-serverlabels-name[data-in-folder="true"]`; these labels have a `23px` left margin (for the connector), so their left side is not flush with the icon and benefits from rounded corners on all sides
+- **Light mode text contrast fix** — removed `color: #ffffff` from `.theme-light .vc-serverlabels-name[data-has-color="true"]`; at 20–40% background opacity, white text on Discord's light background has near-zero contrast; the base light theme `color: #060607` now applies to colored labels in light mode
+- **Folder labels match icon dimensions exactly** — added `.vc-serverlabels-name[data-folder-id]` rule with `height: 48px` (matching the 48×48px `folderPreviewWrapper` confirmed via DevTools) and `border-radius: 16px` (matching the icon's border-radius on all four corners), making folder label backgrounds appear as a seamless continuation of the folder icon shape
+- **Gap equalization between folder and first server** — added `margin-top: 4px` to `ul[id^="folder-items-"] > :first-child`; the folder label's extra height (48px vs 42px) caused the folder→first-server visual gap to be ~3px narrower than the server→server gap; this margin restores parity
+
 ## [0.1.10] — 2026-04-22
 
 ### Light theme support, observer stability, and nested server indentation

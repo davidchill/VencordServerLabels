@@ -14,11 +14,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
 
-    line-height: 1;
-
-    /* Rectangular button shape */
-    padding: 5px 12px;
-    border-radius: 4px;
+    /* Stretch to full height of the icon row; center text vertically */
+    display: inline-flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 0 4px 4px 0;
     min-width: 120px;
 
     /* Default background for servers not in a colored folder */
@@ -27,15 +27,15 @@
 
     /*
      * Absolutely positioned so the label never participates in flex layout
-     * and therefore never moves the icon. left: 100% = right edge of listItem
-     * (the icon row), which is as wide as the icon itself thanks to
-     * width: fit-content on the :has() rule below.
+     * and therefore never moves the icon. left: 100% = right edge of iconSpan.
+     * top: 0 / bottom: 0 stretches the label to match the iconSpan's full height.
      */
     position: absolute;
     left: 100%;
     top: 50%;
     transform: translateY(-50%);
-    margin-left: 8px;
+    height: 42px;
+    margin-left: 0;
 
     /*
      * pointer-events: none makes all labels invisible to Discord's event system
@@ -64,9 +64,20 @@
     overflow: visible;
 }
 
+/*
+ * Folder labels: height matches the 48×48 folderPreviewWrapper exactly.
+ * Left border-radius of 16px matches the icon's right-side curve so they
+ * appear as a single connected shape.
+ */
+.vc-serverlabels-name[data-folder-id] {
+    height: 48px;
+    border-radius: 16px;
+}
+
 /* Servers inside a folder get a tree branch connector before the label */
 .vc-serverlabels-name[data-in-folder="true"] {
     margin-left: 23px;
+    border-radius: 4px;
 }
 
 /*
@@ -88,10 +99,20 @@
     pointer-events: none;
 }
 
-/* Colored variant — uses the folder color set as an inline CSS variable */
+/* Colored variant — folder color at ~40% opacity to match the folder icon transparency */
 .vc-serverlabels-name[data-has-color="true"] {
-    background-color: var(--serverlabels-folder-color);
+    background-color: color-mix(in srgb, var(--serverlabels-folder-color) 40%, transparent);
     color: #ffffff;
+}
+
+/* Open folder — more transparent to match Discord's folder icon open state */
+[aria-expanded="true"] > .vc-serverlabels-name[data-has-color="true"] {
+    background-color: color-mix(in srgb, var(--serverlabels-folder-color) 20%, transparent);
+}
+
+/* In-folder server labels — JS toggles this class via aria-expanded observation */
+.vc-serverlabels-name.vc-serverlabels-folder-open[data-has-color="true"] {
+    background-color: color-mix(in srgb, var(--serverlabels-folder-color) 20%, transparent);
 }
 
 /*
@@ -106,8 +127,8 @@
 }
 
 .theme-light .vc-serverlabels-name[data-has-color="true"] {
-    background-color: var(--serverlabels-folder-color);
-    color: #ffffff;
+    background-color: color-mix(in srgb, var(--serverlabels-folder-color) 40%, transparent);
+    /* Dark text from the base light theme rule — white text on a transparent background has no contrast */
 }
 
 /*
@@ -145,4 +166,11 @@
 /* The folder guild list itself */
 .vc-serverlabels-active ul[id^="folder-items-"] {
     overflow: visible;
+}
+
+/* Push the first server row down to match the inter-server gap.
+   The folder label (48px) is taller than server labels (42px), so without this
+   the visual gap between folder→first server is smaller than server→server. */
+.vc-serverlabels-active ul[id^="folder-items-"] > :first-child {
+    margin-top: 4px;
 }

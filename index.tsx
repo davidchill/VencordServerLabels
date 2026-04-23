@@ -225,6 +225,19 @@ function injectLabel(treeitem: Element) {
 
     if (isInFolder(guildId)) {
         label.dataset.inFolder = "true";
+        try {
+            const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
+            const parentFolder = folders.find(f => f.folderId != null && f.guildIds?.includes(guildId));
+            if (parentFolder?.folderId) {
+                const folderId = String(parentFolder.folderId);
+                label.dataset.parentFolderId = folderId;
+                // Initialize open state immediately based on current DOM
+                const folderTreeitem = document.querySelector(`[data-list-item-id="guildsnav___${folderId}"]`);
+                if (folderTreeitem?.getAttribute("aria-expanded") === "true") {
+                    label.classList.add("vc-serverlabels-folder-open");
+                }
+            }
+        } catch {}
     }
 
     // Append the label inside the icon span so it becomes the absolute positioning
@@ -254,7 +267,7 @@ function refreshLabelColors() {
     if (nav && nav !== guildsNav) {
         guildsNav = nav as HTMLElement;
         observer?.disconnect();
-        observer?.observe(guildsNav, { childList: true, subtree: true });
+        observer?.observe(guildsNav, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded"] });
         applyAllLabels();
     } else if (nav) {
         guildsNav = nav as HTMLElement;
@@ -283,6 +296,22 @@ function refreshLabelColors() {
     } catch {}
 }
 
+/**
+ * Syncs the vc-serverlabels-folder-open class on all server labels belonging to
+ * the given folder treeitem, based on its current aria-expanded state.
+ */
+function syncFolderOpenState(treeitem: Element) {
+    const rawId = treeitem.getAttribute("data-list-item-id") ?? "";
+    if (!rawId.startsWith("guildsnav___")) return;
+    const folderId = rawId.slice("guildsnav___".length);
+    const isOpen = treeitem.getAttribute("aria-expanded") === "true";
+    for (const el of activeLabels) {
+        if (el.dataset.parentFolderId === folderId) {
+            el.classList.toggle("vc-serverlabels-folder-open", isOpen);
+        }
+    }
+}
+
 export default definePlugin({
     name: "ServerLabels",
     description: "Displays server names next to their icons in the server list.",
@@ -308,6 +337,10 @@ export default definePlugin({
         // server reorder, folder expand/collapse) and re-inject labels as needed.
         observer = new MutationObserver(mutations => {
             for (const mutation of mutations) {
+                if (mutation.type === "attributes" && mutation.attributeName === "aria-expanded") {
+                    syncFolderOpenState(mutation.target as Element);
+                    continue;
+                }
                 if (mutation.type !== "childList") continue;
                 for (const el of activeLabels) {
                     if (!el.isConnected) activeLabels.delete(el);
@@ -329,7 +362,7 @@ export default definePlugin({
         const nav = document.querySelector('nav[class*="guilds"]');
         if (nav) {
             guildsNav = nav as HTMLElement;
-            observer.observe(nav, { childList: true, subtree: true });
+            observer.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded"] });
         } else {
             // Guild sidebar not ready yet — watch body briefly, then switch to nav.
             observer.observe(document.body, { childList: true, subtree: true });
@@ -340,7 +373,7 @@ export default definePlugin({
                 navBootstrapObserver!.disconnect();
                 navBootstrapObserver = null;
                 observer?.disconnect();
-                observer?.observe(n, { childList: true, subtree: true });
+                observer?.observe(n, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded"] });
             });
             navBootstrapObserver.observe(document.body, { childList: true });
         }
