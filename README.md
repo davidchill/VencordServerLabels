@@ -60,7 +60,7 @@ Key implementation details:
 
 See [CHANGELOG.md](Vencord/src/plugins/serverLabels/CHANGELOG.md) for the full version history.
 
-**Current version: v0.1.6**
+**Current version: v0.1.13**
 
 ## License
 

@@ -51,6 +51,15 @@ let rafId: number | null = null;
 let guildsNav: HTMLElement | null = null;
 
 const activeLabels = new Set<HTMLElement>();
+// Secondary index: parentFolderId → labels, so syncFolderOpenState is an O(1) lookup
+// instead of a full scan of activeLabels on every folder expand/collapse.
+const labelsByFolder = new Map<string, Set<HTMLElement>>();
+
+function pruneLabel(el: HTMLElement) {
+    activeLabels.delete(el);
+    const fid = el.dataset.parentFolderId;
+    if (fid) labelsByFolder.get(fid)?.delete(el);
+}
 
 /** Reads settings and writes them into an injected <style> tag so Discord can't wipe them. */
 function updateCSSVars() {
@@ -73,7 +82,9 @@ function measureMarquee(label: HTMLElement) {
     if (!label.isConnected) return;
     const inner = label.querySelector("span") as HTMLElement | null;
     if (!inner) return;
-    const overflow = inner.scrollWidth - (label.clientWidth - 24); // 24 = 12px padding × 2
+    const style = getComputedStyle(label);
+    const hPad = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const overflow = inner.scrollWidth - (label.clientWidth - hPad);
     if (overflow > 2) {
         label.style.setProperty("--marquee-offset", `-${overflow}px`);
         label.classList.add("vc-serverlabels-overflow");
@@ -84,8 +95,25 @@ function measureMarquee(label: HTMLElement) {
 }
 
 function remeasureAllMarquees() {
+    // Read pass — collect all measurements before touching the DOM
+    const measurements: Array<[HTMLElement, number]> = [];
     for (const el of activeLabels) {
-        if (el.isConnected) measureMarquee(el);
+        if (!el.isConnected) continue;
+        const inner = el.querySelector("span") as HTMLElement | null;
+        if (!inner) continue;
+        const style = getComputedStyle(el);
+        const hPad = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+        measurements.push([el, inner.scrollWidth - (el.clientWidth - hPad)]);
+    }
+    // Write pass — apply results without interleaving reads
+    for (const [el, overflow] of measurements) {
+        if (overflow > 2) {
+            el.style.setProperty("--marquee-offset", `-${overflow}px`);
+            el.classList.add("vc-serverlabels-overflow");
+        } else {
+            el.style.removeProperty("--marquee-offset");
+            el.classList.remove("vc-serverlabels-overflow");
+        }
     }
 }
 
@@ -117,7 +145,7 @@ function isInFolder(guildId: string): boolean {
  */
 function labelAtPoint(x: number, y: number): HTMLElement | null {
     for (const el of activeLabels) {
-        if (!el.isConnected) { activeLabels.delete(el); continue; }
+        if (!el.isConnected) { pruneLabel(el); continue; }
         const r = el.getBoundingClientRect();
         if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
             return el;
@@ -190,6 +218,7 @@ function injectFolderLabel(treeitem: Element) {
 
         const label = document.createElement("span");
         label.className = LABEL_CLASS;
+        label.setAttribute("aria-label", folder.folderName);
         label.dataset.folderId = idStr;
         const folderInner = document.createElement("span");
         folderInner.textContent = folder.folderName;
@@ -263,6 +292,8 @@ function injectLabel(treeitem: Element) {
             if (parentFolder?.folderId) {
                 const folderId = String(parentFolder.folderId);
                 label.dataset.parentFolderId = folderId;
+                if (!labelsByFolder.has(folderId)) labelsByFolder.set(folderId, new Set());
+                labelsByFolder.get(folderId)!.add(label);
                 // Initialize open state immediately based on current DOM
                 const folderTreeitem = document.querySelector(`[data-list-item-id="guildsnav___${folderId}"]`);
                 if (folderTreeitem?.getAttribute("aria-expanded") === "true") {
@@ -292,6 +323,7 @@ function applyAllLabels() {
 function removeAllLabels() {
     activeLabels.forEach(el => el.remove());
     activeLabels.clear();
+    labelsByFolder.clear();
 }
 
 function refreshLabelColors() {
@@ -308,7 +340,7 @@ function refreshLabelColors() {
     try {
         const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
         for (const el of activeLabels) {
-            if (!el.isConnected) { activeLabels.delete(el); continue; }
+            if (!el.isConnected) { pruneLabel(el); continue; }
             let colorHex: string | null = null;
             if (el.dataset.folderId) {
                 const idNum = Number(el.dataset.folderId);
@@ -338,10 +370,10 @@ function syncFolderOpenState(treeitem: Element) {
     if (!rawId.startsWith("guildsnav___")) return;
     const folderId = rawId.slice("guildsnav___".length);
     const isOpen = treeitem.getAttribute("aria-expanded") === "true";
-    for (const el of activeLabels) {
-        if (el.dataset.parentFolderId === folderId) {
-            el.classList.toggle("vc-serverlabels-folder-open", isOpen);
-        }
+    const children = labelsByFolder.get(folderId);
+    if (!children) return;
+    for (const el of children) {
+        el.classList.toggle("vc-serverlabels-folder-open", isOpen);
     }
 }
 
@@ -376,7 +408,7 @@ export default definePlugin({
                 }
                 if (mutation.type !== "childList") continue;
                 for (const el of activeLabels) {
-                    if (!el.isConnected) activeLabels.delete(el);
+                    if (!el.isConnected) pruneLabel(el);
                 }
                 for (const node of mutation.addedNodes) {
                     if (!(node instanceof Element)) continue;
@@ -408,7 +440,7 @@ export default definePlugin({
                 observer?.disconnect();
                 observer?.observe(n, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded"] });
             });
-            navBootstrapObserver.observe(document.body, { childList: true });
+            navBootstrapObserver.observe(document.body, { childList: true, subtree: true });
         }
     },
 

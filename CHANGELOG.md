@@ -1,5 +1,26 @@
 # ServerLabels Changelog
 
+## [0.1.14] — 2026-04-23
+
+### Code review fixes — accessibility, correctness, and performance
+
+**Accessibility**
+- **`aria-label` added to folder labels** — `injectFolderLabel()` now calls `label.setAttribute("aria-label", folder.folderName)`; guild labels already had this attribute; folder labels were the only remaining gap
+
+**Bug fixes**
+- **`navBootstrapObserver` now uses `subtree: true`** — the bootstrap observer (used when the guild nav isn't in the DOM at plugin start) was watching `document.body` with `{ childList: true }` only; without `subtree: true` it would miss the nav if it mounted anywhere below the direct children of body, which is the common case in Discord's Electron shell; one-character fix but a real reliability gap
+- **`measureMarquee` padding derived from computed style** — the magic constant `24` (representing `12px padding × 2`) has been replaced with `getComputedStyle(label).paddingLeft + paddingRight`; the padding value changed once already (v0.1.10 → v0.1.11); deriving it at runtime ensures marquee offsets stay correct if CSS ever changes again
+
+**Performance**
+- **`remeasureAllMarquees` splits reads and writes** — previously the function called `measureMarquee` per label, interleaving DOM reads (`scrollWidth`, `clientWidth`) with DOM writes (`style.setProperty`, `classList`); this causes layout thrashing (each read forces the browser to flush pending style changes before returning a value); the function now does a read pass to collect all measurements, then a write pass to apply them; low practical impact since settings changes are infrequent, but the correct pattern
+- **`syncFolderOpenState` is now O(1) via `labelsByFolder` index** — previously iterated all of `activeLabels` on every folder expand/collapse to find labels belonging to that folder; a new `Map<string, Set<HTMLElement>>` keyed by `parentFolderId` is maintained alongside `activeLabels`; `syncFolderOpenState` now does a single map lookup and iterates only that folder's children; a shared `pruneLabel()` helper keeps both structures in sync on removal
+
+**Documentation**
+- **README version updated** — was still showing `v0.1.6`; now reads `v0.1.13`
+
+**Not pursued — CSS variable base colors (Batch C)**
+- The external code review recommended swapping `color: #ffffff` and `background-color: rgba(255, 255, 255, 0.1)` for Discord's `var(--text-normal)` and `var(--background-modifier-hover)` so custom themes adapt automatically; this was attempted in an earlier session and confirmed non-viable: both variables resolve as grey/muted inside Discord's guild sidebar Electron context rather than the expected theme colors; the `.theme-light` override approach introduced in v0.1.10 remains the confirmed workaround
+
 ## [0.1.13] — 2026-04-23
 
 ### Label detachment, dynamic width, and height reductions
