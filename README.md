@@ -9,9 +9,12 @@ A custom [Vencord](https://github.com/Vendicated/Vencord) plugin that displays s
 - Server names shown inline next to server icons in the sidebar
 - Folder names shown next to folder icons
 - Servers inside colored folders inherit the folder's color on their label
+- Folder color opacity shifts when a folder is open vs. closed, matching Discord's native folder icon behavior
 - Tree branch connector lines for servers nested inside open folders
 - Fully clickable labels — clicking navigates to the server or toggles the folder
 - Hover effect and pointer cursor, despite labels being invisible to Discord's event system
+- Long names scroll (marquee) on hover rather than staying truncated
+- Light theme support — labels automatically switch to dark text on a subtle background
 - Adjustable font size, font weight, and max label width via plugin settings
 - Tooltip suppression — Discord's native server-name tooltip is blocked while labels are visible
 - Clean enable/disable — all injected elements and listeners removed on plugin stop
@@ -41,7 +44,7 @@ This plugin is installed as a Vencord [user plugin](https://docs.vencord.dev/plu
 |---|---|---|
 | Font size | 14px | Label font size (10–20px slider) |
 | Font weight | Normal | Normal, Medium, or Bold |
-| Max width | 150px | Maximum label width before text truncates (80–200px slider) |
+| Max width | 160px | Maximum label width before text truncates and marquee activates (80–200px slider) |
 
 Settings take effect immediately without toggling the plugin.
 
@@ -54,13 +57,16 @@ Key implementation details:
 - **DOM injection** — Labels are appended inside the icon `<span>` (not after it), making the icon span the absolute positioning anchor. This preserves Discord's native icon centering without any layout hacks.
 - **pointer-events: none** — Labels are invisible to Discord's event system. Clicks and hover effects are handled by document-level listeners that check bounding rects manually (`labelAtPoint()`). This is the only reliable way to suppress Discord's React-delegated tooltips.
 - **CSS variable injection** — Settings are written into a `<style>` tag in `<head>` rather than inline on `document.documentElement`. Discord periodically rewrites the root element's `style` attribute for its own theming, which would silently wipe inline custom properties.
-- **Folder color** — `SortedGuildStore` is used to look up each guild's parent folder and extract `folderColor` (a raw integer), which is converted to a hex CSS string.
+- **Folder color** — `SortedGuildStore` is used to look up each guild's parent folder and extract `folderColor` (a raw integer), which is converted to a hex CSS string and applied as an inline `--serverlabels-folder-color` variable. Opacity is 40% when the folder is closed, 20% when open — driven by `aria-expanded` observation rather than CSS structural selectors (which can't reach sibling subtrees).
+- **Folder open state sync** — The observer watches `aria-expanded` attribute changes on folder treeitems. A `Map<folderId, Set<label>>` index makes each sync an O(1) lookup rather than a full scan of all active labels.
+- **Marquee scroll** — After each label is injected, `measureMarquee()` runs in a `requestAnimationFrame` to check whether the text overflows the pill width. If it does, `--marquee-offset` is set and a CSS animation scrolls the inner text span left-to-right on hover. Re-measurement is batched into a read pass then a write pass to avoid layout thrashing.
+- **Light theme** — Discord adds `.theme-light` to `<html>` when the light theme is active. The CSS uses this class to switch labels to dark text on a subtle dark-tinted background.
 
 ## Changelog
 
 See [CHANGELOG.md](Vencord/src/plugins/serverLabels/CHANGELOG.md) for the full version history.
 
-**Current version: v0.1.13**
+**Current version: v0.1.14**
 
 ## License
 

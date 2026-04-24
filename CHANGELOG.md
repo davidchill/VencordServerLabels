@@ -1,5 +1,12 @@
 # ServerLabels Changelog
 
+## [0.1.15] — 2026-04-23
+
+### Height adjustment and README refresh
+
+- **In-folder server label height reduced to 36px** — changed from 39px to 36px, making nested server labels exactly 2px shorter than their parent folder labels (38px); creates a subtle visual hierarchy between folder and server rows
+- **README updated** — corrected max width default (150px → 160px); added missing features (marquee scroll, light theme support, folder color open/closed opacity); expanded "How It Works" with `aria-expanded` observation, `labelsByFolder` O(1) index, marquee measurement detail, and light theme CSS approach; bumped version to v0.1.14 (was showing v0.1.13)
+
 ## [0.1.14] — 2026-04-23
 
 ### Code review fixes — accessibility, correctness, and performance
