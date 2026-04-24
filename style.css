@@ -204,6 +204,7 @@
    Offset: ~80px icon column + 8px gap + 12px buffer = 100px.
    At the default maxWidth of 160px this equals the previous hardcoded 260/300px. */
 .vc-serverlabels-active nav:has(.vc-serverlabels-name) {
+    position: relative;
     min-width: calc(var(--serverlabels-max-width, 160px) + 100px);
     max-width: calc(var(--serverlabels-max-width, 160px) + 140px);
     overflow: visible;
@@ -224,6 +225,54 @@
    the visual gap between folder→first server is smaller than server→server. */
 .vc-serverlabels-active ul[id^="folder-items-"] > :first-child {
     margin-top: 4px;
+}
+
+/* ============================================================
+   Settings shortcut button — injected directly into guildsNav
+   ============================================================ */
+
+.vc-serverlabels-settings-btn {
+    position: absolute;
+    right: 8px;
+    /* top is set by JS, calculated from the home row's bounding rect */
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s ease, background 0.15s ease;
+
+    pointer-events: auto;
+    z-index: 1;
+    outline: none;
+}
+
+.vc-serverlabels-settings-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.vc-serverlabels-settings-btn:active {
+    opacity: 0.8;
+}
+
+.theme-light .vc-serverlabels-settings-btn {
+    color: #060607;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .vc-serverlabels-settings-btn:hover {
+    background: rgba(0, 0, 0, 0.18);
 }
 
 /* ============================================================

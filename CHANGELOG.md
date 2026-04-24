@@ -1,5 +1,22 @@
 # ServerLabels Changelog
 
+## [0.2.3] — 2026-04-24
+
+### Settings shortcut button in the sidebar
+
+**New feature**
+- **Settings shortcut button** — a circular gear button is now injected at the right edge of the guild sidebar, vertically aligned with the home/DM row at the top; clicking it opens the ServerLabels plugin settings modal directly, bypassing the Discord Settings → Vencord → Plugins navigation flow
+
+**Implementation**
+- Added `injectSettingsButton()` — finds `[data-list-item-id="guildsnav___home"]`, uses `.closest('nav[class*="guilds"]')` to locate the guild nav, calculates the button's vertical offset from the home row's bounding rect (`homeRect.top - navRect.top + (homeRect.height - 32) / 2`), and appends a `<button>` as a direct child of `guildsNav` with `position: absolute; right: 8px; top: {computed}px`; bails early if the nav has zero height (not yet laid out) so the MutationObserver can retry
+- Added `removeSettingsButton()` — removes the button on plugin `stop()` and clears the `settingsBtn` module reference
+- `openPluginModal` imported from `@components/settings/tabs/plugins/PluginModal`; plugin instance retrieved at click time via `window.Vencord.Plugins.plugins["ServerLabels"]`
+- Button click calls `stopPropagation()` and `preventDefault()` to prevent the home treeitem from receiving the click
+- Re-injection guard added to the MutationObserver `childList` branch so the button survives Discord nav re-renders
+- `settingsBtn` module-level variable added alongside `guildsNav`
+- `position: relative` added to `.vc-serverlabels-active nav:has(.vc-serverlabels-name)` so the button is positioned within the nav rather than a more distant ancestor
+- CSS: `.vc-serverlabels-settings-btn` — 32×32px circle, `position: absolute; right: 8px`, `pointer-events: auto` (unlike labels), `opacity: 0.7` base with `1.0` on hover; hover also brightens the background; light theme variant with dark icon color
+
 ## [0.2.2] — 2026-04-24
 
 ### Settings page restructuring, font picker restyling, and docs/path cleanup

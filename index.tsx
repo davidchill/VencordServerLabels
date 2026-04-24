@@ -7,6 +7,7 @@
 import "./style.css";
 
 import { definePluginSettings } from "@api/Settings";
+import { openPluginModal } from "@components/settings/tabs/plugins/PluginModal";
 import definePlugin, { OptionType } from "@utils/types";
 import { findStoreLazy } from "@webpack";
 import { GuildStore, NavigationRouter, React } from "@webpack/common";
@@ -128,6 +129,7 @@ let styleEl: HTMLStyleElement | null = null;
 const fontLinkEls: HTMLLinkElement[] = [];
 let rafId: number | null = null;
 let guildsNav: HTMLElement | null = null;
+let settingsBtn: HTMLElement | null = null;
 
 const activeLabels = new Set<HTMLElement>();
 // Secondary index: parentFolderId → labels, so syncFolderOpenState is an O(1) lookup
@@ -475,6 +477,44 @@ function injectLabel(treeitem: Element) {
     requestAnimationFrame(() => measureMarquee(label));
 }
 
+function injectSettingsButton() {
+    if (document.getElementById("vc-serverlabels-settings-btn")) return;
+
+    const homeItem = document.querySelector('[data-list-item-id="guildsnav___home"]');
+    if (!homeItem) return;
+
+    const nav = homeItem.closest('nav[class*="guilds"]') as HTMLElement | null;
+    if (!nav) return;
+
+    // Bail if the nav isn't laid out yet — MutationObserver will retry.
+    const navRect = nav.getBoundingClientRect();
+    if (navRect.height === 0) return;
+
+    const homeRect = homeItem.getBoundingClientRect();
+    const topOffset = homeRect.top - navRect.top + (homeRect.height - 32) / 2;
+
+    const btn = document.createElement("button");
+    btn.id = "vc-serverlabels-settings-btn";
+    btn.className = "vc-serverlabels-settings-btn";
+    btn.setAttribute("aria-label", "Open ServerLabels Settings");
+    btn.style.top = `${topOffset}px`;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41L9.25 5.35c-.59.24-1.13.56-1.62.94L5.24 5.33c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.22-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94L2.84 14.52c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58ZM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6Z"/></svg>`;
+    btn.addEventListener("click", e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const plugin = (window as any).Vencord?.Plugins?.plugins?.["ServerLabels"];
+        if (plugin) openPluginModal(plugin);
+    });
+
+    nav.appendChild(btn);
+    settingsBtn = btn;
+}
+
+function removeSettingsButton() {
+    settingsBtn?.remove();
+    settingsBtn = null;
+}
+
 function applyAllLabels() {
     document.querySelectorAll(TREEITEM_SELECTOR).forEach(el => {
         injectLabel(el);
@@ -555,6 +595,7 @@ export default definePlugin({
         loadAllFonts();
         updateCSSVars();
         applyAllLabels();
+        injectSettingsButton();
 
         // Labels have pointer-events: none, so all interaction is handled here.
         document.addEventListener("click", onDocumentClick, true);
@@ -584,6 +625,7 @@ export default definePlugin({
                         injectFolderLabel(el);
                     });
                 }
+                injectSettingsButton();
             }
         });
 
@@ -612,6 +654,7 @@ export default definePlugin({
         document.body.classList.remove("vc-serverlabels-no-connector");
         document.body.classList.remove("vc-serverlabels-custom-color");
         if (guildsNav) { guildsNav.style.cursor = ""; guildsNav = null; }
+        removeSettingsButton();
         document.removeEventListener("click", onDocumentClick, true);
         document.removeEventListener("mousemove", onDocumentMouseMove);
         SortedGuildStore.removeChangeListener(refreshLabelColors);

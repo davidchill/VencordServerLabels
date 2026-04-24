@@ -21,6 +21,7 @@ A custom [Vencord](https://github.com/Vendicated/Vencord) plugin that displays s
 - Custom font color with theme-adaptive fallback when left blank
 - Sidebar width auto-scales with the Max Width setting
 - Tooltip suppression — Discord's native server-name tooltip is blocked while labels are visible
+- Settings shortcut button — a gear icon at the right edge of the sidebar opens the plugin settings modal in one click
 - Clean enable/disable — all injected elements and listeners removed on plugin stop
 
 ## Installation
@@ -87,7 +88,7 @@ Key implementation details:
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-**Current version: v0.2.2**
+**Current version: v0.2.3**
 
 ## License
 
