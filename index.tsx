@@ -10,7 +10,7 @@ import { definePluginSettings } from "@api/Settings";
 import { openPluginModal } from "@components/settings/tabs/plugins/PluginModal";
 import definePlugin, { OptionType } from "@utils/types";
 import { findStoreLazy } from "@webpack";
-import { GuildStore, NavigationRouter, React } from "@webpack/common";
+import { Forms, GuildStore, NavigationRouter, React, SearchableSelect, Select, Slider, TextInput } from "@webpack/common";
 
 const SortedGuildStore = findStoreLazy("SortedGuildStore");
 
@@ -48,34 +48,15 @@ const settings = definePluginSettings({
         description: "",
         component: () => <SettingsSection title="Typography" />,
     },
-    fontFamily: {
+    fontFamilyColorRow: {
         type: OptionType.COMPONENT,
-        description: "Font family",
-        default: "Discord Default",
-        component: () => <FontFamilyPicker />,
+        description: "",
+        component: () => <FontFamilyColorRow />,
     },
-    fontSize: {
-        type: OptionType.SLIDER,
-        description: "Font size (px)",
-        default: 14,
-        markers: [10, 12, 14, 16, 18, 20],
-        onChange: () => updateCSSVars(),
-    },
-    fontWeight: {
-        type: OptionType.SELECT,
-        description: "Font weight",
-        options: [
-            { label: "Normal", value: "400", default: true },
-            { label: "Medium", value: "500" },
-            { label: "Bold", value: "700" },
-        ],
-        onChange: () => updateCSSVars(),
-    },
-    fontColor: {
-        type: OptionType.STRING,
-        description: "Text color — any CSS color (e.g. #ff0000). Leave blank for theme-adaptive defaults.",
-        default: "",
-        onChange: () => updateCSSVars(),
+    fontSizeWeightRow: {
+        type: OptionType.COMPONENT,
+        description: "",
+        component: () => <FontSizeWeightRow />,
     },
     // ── Label Style ─────────────────────────────────────────────────────────
     labelStyleHeader: {
@@ -83,22 +64,10 @@ const settings = definePluginSettings({
         description: "",
         component: () => <SettingsSection title="Label Style" />,
     },
-    maxWidth: {
-        type: OptionType.SLIDER,
-        description: "Max width (px)",
-        default: 160,
-        markers: [80, 100, 120, 150, 160, 180, 200],
-        onChange: () => updateCSSVars(),
-    },
-    labelRadius: {
-        type: OptionType.SELECT,
-        description: "Corner radius",
-        options: [
-            { label: "Pill", value: "16px", default: true },
-            { label: "Rounded", value: "8px" },
-            { label: "Sharp", value: "4px" },
-        ],
-        onChange: () => updateCSSVars(),
+    labelRadiusWidthRow: {
+        type: OptionType.COMPONENT,
+        description: "",
+        component: () => <LabelRadiusWidthRow />,
     },
     // ── Behavior ─────────────────────────────────────────────────────────────
     behaviorHeader: {
@@ -155,63 +124,176 @@ function unloadAllFonts() {
 function SettingsSection({ title }: { title: string; }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginTop: "4px" }}>
-            <span style={{
-                fontSize: "11px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "var(--text-normal)",
-                whiteSpace: "nowrap",
-            }}>{title}</span>
+            <Forms.FormTitle tag="h5" style={{ margin: 0, whiteSpace: "nowrap" }}>{title}</Forms.FormTitle>
             <div style={{ flex: 1, height: "1px", background: "var(--background-modifier-accent)" }} />
         </div>
     );
 }
 
 function FontFamilyPicker() {
-    const [isOpen, setIsOpen] = React.useState(false);
     const [selected, setSelected] = React.useState<string>(settings.store.fontFamily ?? "Discord Default");
-    const containerRef = React.useRef<HTMLDivElement>(null);
 
-    React.useEffect(() => {
-        if (!isOpen) return;
-        function onMouseDown(e: MouseEvent) {
-            if (!containerRef.current?.contains(e.target as Node)) setIsOpen(false);
-        }
-        document.addEventListener("mousedown", onMouseDown);
-        return () => document.removeEventListener("mousedown", onMouseDown);
-    }, [isOpen]);
-
-    function selectFont(name: string) {
-        settings.store.fontFamily = name;
-        setSelected(name);
-        updateCSSVars();
-        setIsOpen(false);
-    }
-
-    const currentCss = FONT_CATALOG[selected]?.css ?? "var(--font-primary)";
+    const fontOptions = Object.keys(FONT_CATALOG).map(name => ({ label: name, value: name }));
 
     return (
-        <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
-            <div className="vc-serverlabels-font-trigger" onClick={() => setIsOpen(o => !o)} style={{ fontFamily: currentCss }}>
-                <span>{selected}</span>
-                <span className="vc-serverlabels-font-caret">{isOpen ? "▲" : "▼"}</span>
-            </div>
-            {isOpen && (
-                <div className="vc-serverlabels-font-dropdown">
-                    {Object.keys(FONT_CATALOG).map(name => (
-                        <div
-                            key={name}
-                            className={"vc-serverlabels-font-option" + (name === selected ? " vc-serverlabels-font-option--selected" : "")}
-                            onClick={() => selectFont(name)}
-                            style={{ fontFamily: FONT_CATALOG[name].css }}
-                        >
-                            {name}
-                        </div>
-                    ))}
-                </div>
+        <SearchableSelect
+            options={fontOptions}
+            value={fontOptions.find(o => o.value === selected)?.value}
+            onChange={(v: string) => {
+                settings.store.fontFamily = v;
+                setSelected(v);
+                updateCSSVars();
+            }}
+            renderOptionLabel={option => (
+                <span style={{ fontFamily: FONT_CATALOG[option.value]?.css ?? "inherit" }}>
+                    {option.label}
+                </span>
             )}
+            renderOptionValue={_options => (
+                <span style={{ fontFamily: FONT_CATALOG[selected]?.css ?? "inherit" }}>
+                    {selected}
+                </span>
+            )}
+            closeOnSelect={true}
+        />
+    );
+}
+
+function SettingsRow2Col({ left, right }: { left: React.ReactNode; right: React.ReactNode; }) {
+    return (
+        <div className="vc-serverlabels-settings-row">
+            {left}
+            {right}
         </div>
+    );
+}
+
+function SettingsCell({ label, children }: { label: string; children: React.ReactNode; }) {
+    return (
+        <div className="vc-serverlabels-settings-cell">
+            <span className="vc-serverlabels-settings-cell-label">{label}</span>
+            {children}
+        </div>
+    );
+}
+
+function FontFamilyColorRow() {
+    const [color, setColor] = React.useState<string>(settings.store.fontColor ?? "");
+    return (
+        <SettingsRow2Col
+            left={
+                <SettingsCell label="Font Family">
+                    <FontFamilyPicker />
+                </SettingsCell>
+            }
+            right={
+                <SettingsCell label="Font Color">
+                    <TextInput
+                        type="text"
+                        placeholder="blank = theme default"
+                        value={color}
+                        onChange={(v: string) => {
+                            settings.store.fontColor = v;
+                            setColor(v);
+                            updateCSSVars();
+                        }}
+                        maxLength={null}
+                    />
+                </SettingsCell>
+            }
+        />
+    );
+}
+
+function FontSizeWeightRow() {
+    const [size, setSize] = React.useState<number>(settings.store.fontSize ?? 14);
+    const [weight, setWeight] = React.useState<string>(settings.store.fontWeight ?? "400");
+    return (
+        <SettingsRow2Col
+            left={
+                <SettingsCell label="Font Size">
+                    <Slider
+                        markers={[10, 12, 14, 16, 18, 20]}
+                        minValue={10}
+                        maxValue={20}
+                        initialValue={size}
+                        stickToMarkers={true}
+                        onValueChange={(v: number) => {
+                            const n = Math.round(v);
+                            settings.store.fontSize = n;
+                            setSize(n);
+                            updateCSSVars();
+                        }}
+                        onValueRender={(v: number) => `${Math.round(v)}px`}
+                    />
+                </SettingsCell>
+            }
+            right={
+                <SettingsCell label="Font Weight">
+                    <Select
+                        options={[
+                            { label: "Normal", value: "400" },
+                            { label: "Medium", value: "500" },
+                            { label: "Bold", value: "700" },
+                        ]}
+                        select={(v: string) => {
+                            settings.store.fontWeight = v;
+                            setWeight(v);
+                            updateCSSVars();
+                        }}
+                        isSelected={(v: string) => v === weight}
+                        serialize={String}
+                        closeOnSelect={true}
+                    />
+                </SettingsCell>
+            }
+        />
+    );
+}
+
+function LabelRadiusWidthRow() {
+    const [radius, setRadius] = React.useState<string>(settings.store.labelRadius ?? "16px");
+    const [width, setWidth] = React.useState<number>(settings.store.maxWidth ?? 160);
+    return (
+        <SettingsRow2Col
+            left={
+                <SettingsCell label="Label Radius">
+                    <Select
+                        options={[
+                            { label: "Pill", value: "16px" },
+                            { label: "Rounded", value: "8px" },
+                            { label: "Sharp", value: "4px" },
+                        ]}
+                        select={(v: string) => {
+                            settings.store.labelRadius = v;
+                            setRadius(v);
+                            updateCSSVars();
+                        }}
+                        isSelected={(v: string) => v === radius}
+                        serialize={String}
+                        closeOnSelect={true}
+                    />
+                </SettingsCell>
+            }
+            right={
+                <SettingsCell label="Max Width">
+                    <Slider
+                        markers={[80, 120, 160, 200]}
+                        minValue={80}
+                        maxValue={200}
+                        initialValue={width}
+                        stickToMarkers={false}
+                        onValueChange={(v: number) => {
+                            const n = Math.round(v);
+                            settings.store.maxWidth = n;
+                            setWidth(n);
+                            updateCSSVars();
+                        }}
+                        onValueRender={(v: number) => `${Math.round(v)}px`}
+                    />
+                </SettingsCell>
+            }
+        />
     );
 }
 
@@ -229,10 +311,10 @@ function updateCSSVars() {
     if (!styleEl) return;
     const color = settings.store.fontColor?.trim();
     styleEl.textContent = `:root {
-        --serverlabels-font-size: ${settings.store.fontSize}px;
-        --serverlabels-font-weight: ${settings.store.fontWeight};
-        --serverlabels-max-width: ${settings.store.maxWidth}px;
-        --serverlabels-radius: ${settings.store.labelRadius};
+        --serverlabels-font-size: ${settings.store.fontSize ?? 14}px;
+        --serverlabels-font-weight: ${settings.store.fontWeight ?? "400"};
+        --serverlabels-max-width: ${settings.store.maxWidth ?? 160}px;
+        --serverlabels-radius: ${settings.store.labelRadius ?? "16px"};
         --serverlabels-font-family: ${FONT_CATALOG[settings.store.fontFamily]?.css ?? "var(--font-primary)"};
         ${color ? `--serverlabels-color: ${color};` : ""}
     }`;

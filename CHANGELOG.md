@@ -1,5 +1,27 @@
 # ServerLabels Changelog
 
+## [0.2.4] — 2026-04-24
+
+### Settings UI — 2-column layout and native Discord controls throughout
+
+**Layout**
+- **2-column grid layout** — settings panel now arranges controls side-by-side in pairs: Font Family | Font Color, Font Size | Font Weight, Label Radius | Max Width; Behavior toggles remain full-width; implemented via new `SettingsRow2Col` and `SettingsCell` React components using a CSS grid (`1fr 1fr`, `gap: 16px`)
+- **Individual settings replaced with row COMPONENT pairs** — `fontFamily`, `fontSize`, `fontWeight`, `fontColor`, `maxWidth`, and `labelRadius` are no longer declared as individual setting entries; their values still persist via `settings.store`; `updateCSSVars()` updated with `?? default` fallbacks to handle first-run initialisation without declared defaults
+
+**Native Discord controls**
+- **Font Family** — custom `FontFamilyPicker` replaced with `SearchableSelect` (imported from `@webpack/common`); per-option font preview retained via `renderOptionLabel` (each option name renders in its own typeface); selected font preview in the trigger button retained via `renderOptionValue`; search/filter field included by default
+- **Font Weight, Label Radius** — plain HTML `<select>` replaced with Discord's native `Select` component (`select`, `isSelected`, `serialize`, `closeOnSelect`)
+- **Font Size, Max Width** — plain HTML `<input type="range">` replaced with Discord's native `Slider` component (`markers`, `minValue`, `maxValue`, `initialValue`, `stickToMarkers`, `onValueChange`, `onValueRender`); Font Size uses markers `[10, 12, 14, 16, 18, 20]` with `stickToMarkers: true`; Max Width uses markers `[80, 120, 160, 200]` with `stickToMarkers: false` for continuous drag
+- **Font Color** — plain HTML `<input type="text">` replaced with Discord's native `TextInput` component
+- **Section headers** — custom inline-styled `<span>` replaced with `Forms.FormTitle` (tag `h5`), which uses Discord's native `--header-secondary` variable and adapts correctly to both dark and light themes; resolves the dark/washed-out appearance of section headers in prior versions
+
+**Imports added:** `Forms`, `SearchableSelect`, `Select`, `Slider`, `TextInput` from `@webpack/common`
+
+**CSS cleanup**
+- Removed: `.vc-serverlabels-font-trigger`, `.vc-serverlabels-font-caret`, `.vc-serverlabels-font-dropdown`, `.vc-serverlabels-font-option` — no longer needed with `SearchableSelect`
+- Removed: `.vc-serverlabels-select`, `.vc-serverlabels-text-input`, `.vc-serverlabels-slider-cell`, `.vc-serverlabels-slider-value` — no longer needed with native Discord controls
+- Retained: `.vc-serverlabels-settings-row`, `.vc-serverlabels-settings-cell`, `.vc-serverlabels-settings-cell-label` — used for the 2-column grid layout and cell labels
+
 ## [0.2.3] — 2026-04-24
 
 ### Settings shortcut button in the sidebar

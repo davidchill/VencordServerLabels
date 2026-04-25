@@ -88,7 +88,7 @@ Key implementation details:
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-**Current version: v0.2.3**
+**Current version: v0.2.4**
 
 ## License
 

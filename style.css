@@ -275,65 +275,27 @@
     background: rgba(0, 0, 0, 0.18);
 }
 
+
 /* ============================================================
-   Font Family Picker — settings panel component
-   Backgrounds use hardcoded hex fallbacks because CSS variables
-   may not resolve inside Vencord's settings panel context.
+   Settings panel — 2-column layout rows
    ============================================================ */
 
-.vc-serverlabels-font-trigger {
-    background: var(--input-background, #1e1f22);
-    border: 1px solid var(--background-modifier-accent, #3f4248);
-    border-radius: 3px;
-    padding: 0 12px;
-    height: 36px;
-    cursor: pointer;
+.vc-serverlabels-settings-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+}
+
+.vc-serverlabels-settings-cell {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-    user-select: none;
-    color: var(--text-normal, #dbdee1);
-    box-sizing: border-box;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.vc-serverlabels-font-trigger:hover {
-    border-color: var(--text-muted, #80848e);
+.vc-serverlabels-settings-cell-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted, #80848e);
 }
 
-.vc-serverlabels-font-caret {
-    font-size: 9px;
-    opacity: 0.6;
-    margin-left: 8px;
-    flex-shrink: 0;
-}
-
-.vc-serverlabels-font-dropdown {
-    position: absolute;
-    top: calc(100% + 2px);
-    left: 0;
-    right: 0;
-    background: var(--background-floating, #18191c);
-    border: 1px solid var(--background-modifier-accent, #3f4248);
-    border-radius: 3px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-    z-index: 9999;
-    max-height: 280px;
-    overflow-y: auto;
-}
-
-.vc-serverlabels-font-option {
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--text-normal, #dbdee1);
-}
-
-.vc-serverlabels-font-option:hover {
-    background: var(--background-modifier-hover, rgba(255, 255, 255, 0.06));
-}
-
-.vc-serverlabels-font-option.vc-serverlabels-font-option--selected {
-    background: var(--background-modifier-selected, rgba(255, 255, 255, 0.1));
-    color: var(--text-normal, #ffffff);
-}
