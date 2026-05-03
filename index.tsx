@@ -95,7 +95,7 @@ const TREEITEM_SELECTOR = '[data-list-item-id^="guildsnav___"]';
 let observer: MutationObserver | null = null;
 let navBootstrapObserver: MutationObserver | null = null;
 let styleEl: HTMLStyleElement | null = null;
-const fontLinkEls: HTMLLinkElement[] = [];
+const fontLinkEls = new Map<string, HTMLLinkElement>();
 let rafId: number | null = null;
 let guildsNav: HTMLElement | null = null;
 let settingsBtn: HTMLElement | null = null;
@@ -105,20 +105,41 @@ const activeLabels = new Set<HTMLElement>();
 // instead of a full scan of activeLabels on every folder expand/collapse.
 const labelsByFolder = new Map<string, Set<HTMLElement>>();
 
+function loadFont(name: string) {
+    const entry = FONT_CATALOG[name];
+    if (!entry?.url || fontLinkEls.has(name)) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = entry.url;
+    document.head.appendChild(link);
+    fontLinkEls.set(name, link);
+}
+
 function loadAllFonts() {
-    for (const entry of Object.values(FONT_CATALOG)) {
-        if (!entry.url) continue;
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.href = entry.url;
-        document.head.appendChild(link);
-        fontLinkEls.push(link);
-    }
+    for (const name of Object.keys(FONT_CATALOG)) loadFont(name);
+}
+
+function unloadFont(name: string) {
+    const link = fontLinkEls.get(name);
+    if (!link) return;
+    link.remove();
+    fontLinkEls.delete(name);
 }
 
 function unloadAllFonts() {
-    fontLinkEls.forEach(el => el.remove());
-    fontLinkEls.length = 0;
+    for (const link of fontLinkEls.values()) link.remove();
+    fontLinkEls.clear();
+}
+
+function loadSelectedFont() {
+    loadFont(settings.store.fontFamily ?? "Discord Default");
+}
+
+function unloadNonSelectedFonts() {
+    const selected = settings.store.fontFamily ?? "Discord Default";
+    for (const name of [...fontLinkEls.keys()]) {
+        if (name !== selected) unloadFont(name);
+    }
 }
 
 function SettingsSection({ title }: { title: string; }) {
@@ -132,6 +153,11 @@ function SettingsSection({ title }: { title: string; }) {
 
 function FontFamilyPicker() {
     const [selected, setSelected] = React.useState<string>(settings.store.fontFamily ?? "Discord Default");
+
+    React.useEffect(() => {
+        loadAllFonts();
+        return () => unloadNonSelectedFonts();
+    }, []);
 
     const fontOptions = Object.keys(FONT_CATALOG).map(name => ({ label: name, value: name }));
 
@@ -367,17 +393,6 @@ function remeasureAllMarquees() {
     }
 }
 
-function getFolderColor(guildId: string): string | null {
-    try {
-        const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
-        const folder = folders.find(f => f.guildIds?.includes(guildId));
-        const color: number | null | undefined = folder?.folderColor;
-        if (!color) return null;
-        return `#${color.toString(16).padStart(6, "0")}`;
-    } catch {
-        return null;
-    }
-}
 
 /**
  * Returns the label element (if any) whose bounding rect contains the given point.
@@ -443,7 +458,7 @@ function onDocumentMouseMove(e: MouseEvent) {
  * the label as a sibling inside the existing listItem flex row —
  * without wrapping or moving any of Discord's original elements.
  */
-function injectFolderLabel(treeitem: Element) {
+function injectFolderLabel(treeitem: Element, folders: any[]) {
     const rawId = treeitem.getAttribute("data-list-item-id") ?? "";
     if (!rawId.startsWith("guildsnav___")) return;
 
@@ -452,7 +467,6 @@ function injectFolderLabel(treeitem: Element) {
     if (!Number.isFinite(idNum) || idNum <= 0) return;
 
     try {
-        const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
         const folder = folders.find(f => f.folderId === idNum);
         if (!folder?.folderName) return;
 
@@ -475,6 +489,10 @@ function injectFolderLabel(treeitem: Element) {
             label.dataset.hasColor = "true";
         }
 
+        // Mark ancestors so CSS can set overflow:visible without deep :has() chains.
+        treeitem.parentElement?.classList.add("vc-serverlabels-anc");
+        treeitem.parentElement?.parentElement?.classList.add("vc-serverlabels-anc");
+
         treeitem.appendChild(label);
         activeLabels.add(label);
         requestAnimationFrame(() => measureMarquee(label));
@@ -489,7 +507,7 @@ function suppressNativeTooltip(treeitem: Element) {
     treeitem.querySelectorAll("svg title").forEach(el => el.remove());
 }
 
-function injectLabel(treeitem: Element) {
+function injectLabel(treeitem: Element, folders: any[]) {
     const rawId = treeitem.getAttribute("data-list-item-id") ?? "";
     const guildId = rawId.startsWith("guildsnav___") ? rawId.slice("guildsnav___".length) : null;
     if (!guildId) return;
@@ -517,7 +535,6 @@ function injectLabel(treeitem: Element) {
     let folderColor: string | null = null;
     let parentFolderId: string | null = null;
     try {
-        const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
         const parentFolder = folders.find(f => f.guildIds?.includes(guildId));
         if (parentFolder?.folderColor) folderColor = `#${parentFolder.folderColor.toString(16).padStart(6, "0")}`;
         if (parentFolder?.folderId != null) parentFolderId = String(parentFolder.folderId);
@@ -598,9 +615,10 @@ function removeSettingsButton() {
 }
 
 function applyAllLabels() {
+    const folders: any[] = SortedGuildStore.getGuildFolders?.() ?? [];
     document.querySelectorAll(TREEITEM_SELECTOR).forEach(el => {
-        injectLabel(el);
-        injectFolderLabel(el);
+        injectLabel(el, folders);
+        injectFolderLabel(el, folders);
     });
 }
 
@@ -608,6 +626,7 @@ function removeAllLabels() {
     activeLabels.forEach(el => el.remove());
     activeLabels.clear();
     labelsByFolder.clear();
+    document.querySelectorAll(".vc-serverlabels-anc").forEach(el => el.classList.remove("vc-serverlabels-anc"));
 }
 
 function refreshLabelColors() {
@@ -632,7 +651,9 @@ function refreshLabelColors() {
                 const c = folder?.folderColor;
                 if (c) colorHex = `#${c.toString(16).padStart(6, "0")}`;
             } else if (el.dataset.guildId) {
-                colorHex = getFolderColor(el.dataset.guildId);
+                const parentFolder = folders.find(f => f.guildIds?.includes(el.dataset.guildId));
+                const c = parentFolder?.folderColor;
+                if (c) colorHex = `#${c.toString(16).padStart(6, "0")}`;
             }
             if (colorHex) {
                 el.style.setProperty("--serverlabels-folder-color", colorHex);
@@ -674,7 +695,7 @@ export default definePlugin({
 
         document.body.classList.add("vc-serverlabels-active");
         if (!settings.store.showTreeConnector) document.body.classList.add("vc-serverlabels-no-connector");
-        loadAllFonts();
+        loadSelectedFont();
         updateCSSVars();
         applyAllLabels();
         injectSettingsButton();
@@ -687,6 +708,10 @@ export default definePlugin({
         // Watch for Discord re-rendering the guild list (e.g. new notifications,
         // server reorder, folder expand/collapse) and re-inject labels as needed.
         observer = new MutationObserver(mutations => {
+            // Lazy — only fetched if we actually process treeitem nodes.
+            let folders: any[] | null = null;
+            const getFolders = () => folders ??= SortedGuildStore.getGuildFolders?.() ?? [];
+
             for (const mutation of mutations) {
                 if (mutation.type === "attributes" && mutation.attributeName === "aria-expanded") {
                     syncFolderOpenState(mutation.target as Element);
@@ -699,12 +724,12 @@ export default definePlugin({
                 for (const node of mutation.addedNodes) {
                     if (!(node instanceof Element)) continue;
                     if (node.matches(TREEITEM_SELECTOR)) {
-                        injectLabel(node);
-                        injectFolderLabel(node);
+                        injectLabel(node, getFolders());
+                        injectFolderLabel(node, getFolders());
                     }
                     node.querySelectorAll(TREEITEM_SELECTOR).forEach(el => {
-                        injectLabel(el);
-                        injectFolderLabel(el);
+                        injectLabel(el, getFolders());
+                        injectFolderLabel(el, getFolders());
                     });
                 }
                 injectSettingsButton();

@@ -54,12 +54,11 @@
 }
 
 /*
- * For folder labels, the label is inside folderButton, which sits inside
- * folderHeader → listItem. Both ancestor divs need overflow: visible or they
- * will clip the absolutely-positioned label.
+ * For folder labels, the label is inside folderButton (the treeitem), which sits
+ * inside folderHeader → listItem. JS marks both ancestors with this class at inject
+ * time so we avoid deep :has() chains, which are the most expensive CSS selectors.
  */
-.vc-serverlabels-active :has(> *:has(> .vc-serverlabels-name)),
-.vc-serverlabels-active :has(> *:has(> *:has(> .vc-serverlabels-name))) {
+.vc-serverlabels-active .vc-serverlabels-anc {
     overflow: visible;
 }
 

@@ -1,5 +1,22 @@
 # ServerLabels Changelog
 
+## [0.2.5] — 2026-05-03
+
+### Performance — font lazy-loading, reduced store calls, cheaper CSS selectors
+
+**Font loading**
+- **Google Fonts now lazy-load when the settings panel opens** — `start()` previously called `loadAllFonts()`, injecting a `<link>` for all 15 Google Fonts on every Discord launch regardless of whether settings were ever opened; replaced with `loadSelectedFont()` at startup (one request, ensures the active label renders in the right typeface); `FontFamilyPicker` now calls `loadAllFonts()` in a `React.useEffect` on mount so font previews in the dropdown are still fully functional; on unmount, `unloadNonSelectedFonts()` strips the 14 unused links, leaving only the selected font loaded
+- **Granular font link tracking** — `fontLinkEls` changed from `HTMLLinkElement[]` to `Map<string, HTMLLinkElement>` to support per-font load/unload; added `loadFont(name)` (idempotent, skips if already loaded), `unloadFont(name)`, `loadSelectedFont()`, and `unloadNonSelectedFonts()` helpers
+
+**Store call reduction**
+- **`injectLabel` and `injectFolderLabel` now accept a pre-fetched `folders` array** — previously each function called `SortedGuildStore.getGuildFolders()` independently; with 100 servers `applyAllLabels()` was making ~200 redundant calls; both functions now take `folders: any[]` as a parameter
+- **`applyAllLabels()` fetches folders once** — single `getGuildFolders()` call at the top, passed to both inject functions
+- **MutationObserver lazy-fetches folders once per batch** — a `getFolders()` initializer inside the callback uses `??=` so folders are only fetched if the batch actually contains treeitem nodes, and at most once per callback regardless of how many nodes were added
+- **`getFolderColor()` deleted** — `refreshLabelColors()` already fetched the `folders` array at the top of the function; the guild-label branch was delegating to `getFolderColor()` which called `getGuildFolders()` again internally; inlined the `.find()` lookup using the already-fetched array and removed the helper
+
+**CSS selector performance**
+- **Replaced nested `:has()` chains with a JS-applied class** — two rules (`:has(> *:has(> .vc-serverlabels-name))` and `:has(> *:has(> *:has(> .vc-serverlabels-name)))`) were the most expensive selectors in the stylesheet; replaced with `.vc-serverlabels-active .vc-serverlabels-anc { overflow: visible }`; `injectFolderLabel()` now adds `vc-serverlabels-anc` to the 1st and 2nd ancestor elements of each folder label at inject time; `removeAllLabels()` strips the class from all marked elements on plugin stop
+
 ## [0.2.4] — 2026-04-24
 
 ### Settings UI — 2-column layout and native Discord controls throughout
